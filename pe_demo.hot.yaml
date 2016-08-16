@@ -1,0 +1,111 @@
+heat_template_version: 2015-04-30
+
+description: "TSE PE Demo Stack"
+
+parameters:
+  key_name:
+    type: string
+    description: Name of keypair to assign to servers
+    constraints:
+      - { custom_constraint: nova.keypair }
+
+resources:
+
+  master_server:
+    type: OS::Nova::Server
+    properties:
+      name: "master.inf.puppet.vm"
+      image: "centos_7_x86_64"
+      flavor: "m1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+
+  master_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  master_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: master_floating_ip }
+      server_id: { get_resource: master_server }
+
+  gitlab_server:
+    type: OS::Nova::Server
+    properties:
+      name: "gitlab.inf.puppet.vm"
+      image: "centos_7_x86_64"
+      flavor: "m1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data: &posix_agent_user_data
+        str_replace:
+          template: |
+            #!/bin/bash
+            echo $master_ip master.inf.puppet.vm >> /etc/hosts
+          params:
+            $master_ip: { get_attr: [master_server, first_address] }
+
+  gitlab_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  gitlab_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: gitlab_floating_ip }
+      server_id: { get_resource: gitlab_server }
+
+  centos7a_server:
+    type: OS::Nova::Server
+    properties: &posix_agent_properties
+      name: "centos7a.pdx.puppet.vm"
+      image: "centos_7_x86_64"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *posix_agent_user_data
+
+  centos7b_server:
+    type: OS::Nova::Server
+    properties:
+      <<: *posix_agent_properties
+      name: "centos7b.syd.puppet.vm"
+
+  server2012r2a_server:
+    type: OS::Nova::Server
+    properties: &windows_agent_properties
+      name: "server2012r2a.pdx.puppet.vm"
+      image: "windows_2012_r2_std_eval_x86_64"
+      flavor: "g1.large"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        str_replace:
+          template: |
+            #ps1
+            $host_entry = "$master_ip master.inf.puppet.vm"
+            $host_entry | Out-File -FilePath C:\Windows\System32\Drivers\etc\hosts -Append -Encoding ascii
+          params:
+            $master_ip: { get_attr: [master_server, first_address] }
+
+  server2012r2b_server:
+    type: OS::Nova::Server
+    properties:
+      <<: *windows_agent_properties
+      name: "server2012r2b.syd.puppet.vm"
+
+outputs:
+  master_ip:
+    description: The IP address of the Puppet master server
+    value: { get_attr: [master_floating_ip, ip] }
+  gitlab_ip:
+    description: The IP address of the Gitlab server
+    value: { get_attr: [gitlab_floating_ip, ip] }

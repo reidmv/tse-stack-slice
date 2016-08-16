@@ -20,6 +20,8 @@ resources:
       key_name: { get_param: key_name }
       security_groups:
         - "sg0"
+      user_data:
+        get_file: https://raw.githubusercontent.com/puppetlabs/tse-stack-slice/master/master_server_user_data.sh?token=AAGHLp4dg0_RmxwrGoeGk2q-LOTiZlHPks5XvNXMwA%3D%3D
 
   master_floating_ip:
     type: OS::Nova::FloatingIP

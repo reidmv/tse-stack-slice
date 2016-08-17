@@ -21,27 +21,36 @@ resources:
       security_groups:
         - "sg0"
       user_data_format: RAW
-      user_data: |
-        #!/bin/bash
-        set -e
-        version=2016.2.1
-        curl -O http://pe-releases.puppetlabs.lan/$version/puppet-enterprise-$version-el-7-x86_64.tar.gz
-        curl -O http://tse-builds.s3-us-west-2.amazonaws.com/2016.2.x/releases/pe-demo-latest.tar.gz
-        tar -xzf puppet-enterprise-$version-el-7-x86_64.tar.gz
-        tar -xzf pe-demo-latest.tar.gz
-        cat > pe.conf <<-EOF
-        {
-          "console_admin_password": "puppetlabs"
-          "puppet_enterprise::puppet_master_host": "%{::trusted.certname}"
-          "puppet_enterprise::use_application_services": true
-          "puppet_enterprise::profile::master::r10k_remote": "/opt/puppetlabs/repos/control-repo.git"
-          "puppet_enterprise::profile::master::r10k_private_key": "/dev/null"
-          "puppet_enterprise::profile::master::code_manager_auto_configure": true
-          "puppet_enterprise::profile::master::check_for_updates": false
-        }
-        EOF
-        ./puppet-enterprise-$version-el-7-x86_64/puppet-enterprise-installer -c pe.conf
-        ./pe-demo-*/scripts/bootstrap.sh
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            set -e
+            version=2016.2.1
+            hostname master.inf.puppet.vm
+            echo $(curl -s http://169.254.169.254/latest/meta-data/local-ipv4) master.inf.puppet.vm >> /etc/hosts
+            echo $gitlab_floating_ip gitlab.inf.puppet.vm >> /etc/hosts
+            mkdir -p /etc/puppetlabs/puppet
+            echo '*' > /etc/puppetlabs/puppet/autosign.conf
+            curl -O http://pe-releases.puppetlabs.lan/$version/puppet-enterprise-$version-el-7-x86_64.tar.gz
+            curl -O http://tse-builds.s3-us-west-2.amazonaws.com/2016.2.x/commits/pe-demo-latest.tar.gz
+            tar -xzf puppet-enterprise-$version-el-7-x86_64.tar.gz
+            tar -xzf pe-demo-latest.tar.gz
+            cat > pe.conf <<-EOF
+            {
+              "console_admin_password": "puppetlabs"
+              "puppet_enterprise::puppet_master_host": "%{::trusted.certname}"
+              "puppet_enterprise::use_application_services": true
+              "puppet_enterprise::profile::master::r10k_remote": "/opt/puppetlabs/repos/control-repo.git"
+              "puppet_enterprise::profile::master::r10k_private_key": "/dev/null"
+              "puppet_enterprise::profile::master::code_manager_auto_configure": true
+              "puppet_enterprise::profile::master::check_for_updates": false
+            }
+            EOF
+            FACTER_fqdn=master.inf.puppet.vm ./puppet-enterprise-$version-el-7-x86_64/puppet-enterprise-installer -c pe.conf
+            ./pe-demo-*/scripts/bootstrap.sh
+          params:
+            $gitlab_floating_ip: { get_attr: [gitlab_floating_ip, ip] }
 
   master_floating_ip:
     type: OS::Nova::FloatingIP
@@ -68,6 +77,21 @@ resources:
           template: |
             #!/bin/bash
             echo $master_ip master.inf.puppet.vm >> /etc/hosts
+            wait_tries=0
+            while [ "$wait_tries" -lt 60 ]; do
+              curl --tlsv1 -f -s https://master.inf.puppet.vm:8140
+              status=$?
+              case "$status" in
+                35 | 60)
+                  break
+                  ;;
+                7 | 22)
+                  sleep 10
+                  wait_tries=$(expr "$wait_tries" + 1)
+                  ;;
+              esac
+            done
+            curl -k https://master.inf.puppet.vm:8140/packages/current/install.bash | bash
           params:
             $master_ip: { get_attr: [master_server, first_address] }
 

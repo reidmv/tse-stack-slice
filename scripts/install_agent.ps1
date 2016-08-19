@@ -1,5 +1,5 @@
 #ps1
-# install.ps1 : This powershell script installs the puppet-agent package from a Puppet Enterprise master
+# install_agent.ps1 : This powershell script installs the puppet-agent package from a Puppet Enterprise master
 # This version is specifically for the TSE Demo envoronment and includes logic to wait to install the agent
 # until the master  is available.
 #
@@ -141,9 +141,8 @@ MakeMasterHostsEntry
 
 ## Logic: Wait for an available master to install the agent
 #
-$num_retries = 0
 $master_uri = "http://$($server):80"
-while ($num_retries -lt 60) {
+while ($true) {
   $status = Invoke-WebRequest $master_uri | % {$_.StatusCode}
   switch ($status)
       {
@@ -153,8 +152,8 @@ while ($num_retries -lt 60) {
             CustomPuppetConfiguration
             StartPuppetService
             Write-Verbose "Installation has completed."
-            $num_retries = 60
+            break
             }
-          default { $global:num_retries++ ; sleep 10 }
+          default { Write-Host "Waiting for master to be available" ; sleep 10 }
       }
 }

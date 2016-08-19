@@ -274,9 +274,8 @@ resources:
 
             ## Logic: Wait for an available master to install the agent
             #
-            $num_retries = 0
             $master_uri = "http://$($server):80"
-            while ($num_retries -lt 60) {
+            while ($true) {
               $status = Invoke-WebRequest $master_uri | % {$_.StatusCode}
               switch ($status)
                   {
@@ -286,9 +285,9 @@ resources:
                         CustomPuppetConfiguration
                         StartPuppetService
                         Write-Verbose "Installation has completed."
-                        $num_retries = 60
+                        break
                         }
-                      default { $global:num_retries++ ; sleep 10 }
+                      default { Write-Host "Waiting for master to be available" ; sleep 10 }
                   }
             }
           params:

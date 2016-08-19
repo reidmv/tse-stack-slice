@@ -1,3 +1,4 @@
+#ps1
 # install.ps1 : This powershell script installs the puppet-agent package from a Puppet Enterprise master
 # This version is specifically for the TSE Demo envoronment and includes logic to wait to install the agent
 # until the master  is available.
@@ -7,9 +8,7 @@
 [CmdletBinding()]
 
 $server          = "master.inf.puppet.vm"
-# TODO: set port value, clean up the other variables
-$port            = '<%= scope['::settings::masterport'] %>'
-$master_ip       = "SET ME PLEASE"
+$port            = '8140'
 $puppet_bin_dir  = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Puppet Labs\Puppet\bin'
 $puppet_conf_dir = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'Puppetlabs\puppet\etc'
 $date_time_stamp = (Get-Date -format s) -replace ':', '-'
@@ -26,6 +25,7 @@ $msi_source    = "https://${server}:$port/packages/current/$msi_path/puppet-agen
 $msi_dest      = Join-Path ([System.IO.Path]::GetTempPath()) "puppet-agent-$arch.msi"
 $class_arch    = $msi_path -replace '-', '_'
 $pe_repo_class = "pe_repo::platform::$class_arch"
+$agent_certname = Invoke-RestMethod -Uri http://169.254.169.254/latest/meta-data/local-hostname
 
 function CustomPuppetConfiguration {
   # Parse optional pre-installation configuration of Puppet settings via
@@ -118,7 +118,7 @@ function DownloadPuppet {
 function InstallPuppet {
   Write-Verbose "Installing the Puppet Agent on $env:COMPUTERNAME..."
   Write-Verbose "Saving the install log to $install_log"
-  $msiexec_args = "/qn /log $install_log /i $msi_dest PUPPET_MASTER_SERVER=$server PUPPET_AGENT_STARTUP_MODE=Manual"
+  $msiexec_args = "/qn /log $install_log /i $msi_dest PUPPET_MASTER_SERVER=$server PUPPET_AGENT_STARTUP_MODE=Manual PUPPET_AGENT_CERTNAME=$agent_certname"
   $msiexec_proc = [System.Diagnostics.Process]::Start('msiexec', $msiexec_args)
   $msiexec_proc.WaitForExit()
   if (@(0, 1641, 3010) -NotContains $msiexec_proc.ExitCode) {
@@ -137,16 +137,17 @@ function MakeMasterHostsEntry {
   $host_entry | Out-File -FilePath C:\Windows\System32\Drivers\etc\hosts -Append -Encoding ascii
 }
 
+MakeMasterHostsEntry
+
 ## Logic: Wait for an available master to install the agent
 #
 $num_retries = 0
-$master_uri = "http://$server:80"
+$master_uri = "http://$($server):80"
 while ($num_retries -lt 60) {
   $status = Invoke-WebRequest $master_uri | % {$_.StatusCode}
   switch ($status)
       {
           200 {
-            MakeMasterHostsEntry
             DownloadPuppet
             InstallPuppet
             CustomPuppetConfiguration

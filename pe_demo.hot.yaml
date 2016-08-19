@@ -79,13 +79,11 @@ resources:
             echo $master_ip master.inf.puppet.vm >> /etc/hosts
             hostname $(curl http://169.254.169.254/latest/meta-data/local-hostname)
             echo $(curl -s http://169.254.169.254/latest/meta-data/local-ipv4) $(hostname) >> /etc/hosts
-            wait_tries=0
-            while [ "$wait_tries" -lt 60 ]; do
-            if curl -s --head http://master.inf.puppet.vm:80; then
+            while :; do
+              if curl -s --head http://master.inf.puppet.vm:80/deployed.txt; then
                 break
               else
                 sleep 10
-                wait_tries=$(expr "$wait_tries" + 1)
               fi
             done
             curl -k https://master.inf.puppet.vm:8140/packages/current/install.bash | bash

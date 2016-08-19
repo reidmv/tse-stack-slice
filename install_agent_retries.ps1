@@ -143,6 +143,7 @@ MakeMasterHostsEntry
 #
 $num_retries = 0
 $master_uri = "http://$($server):80"
+
 while ($num_retries -lt 60) {
   $status = Invoke-WebRequest $master_uri | % {$_.StatusCode}
   switch ($status)

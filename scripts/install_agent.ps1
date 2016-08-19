@@ -142,7 +142,7 @@ MakeMasterHostsEntry
 ## Logic: Wait for an available master to install the agent
 #
 $master_uri = "http://$($server):80"
-while ($true) {
+:loop while ($true) {
   $status = Invoke-WebRequest $master_uri | % {$_.StatusCode}
   switch ($status)
       {
@@ -152,7 +152,7 @@ while ($true) {
             CustomPuppetConfiguration
             StartPuppetService
             Write-Verbose "Installation has completed."
-            break
+            break loop
             }
           default { Write-Host "Waiting for master to be available" ; sleep 10 }
       }

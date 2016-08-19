@@ -141,7 +141,7 @@ MakeMasterHostsEntry
 
 ## Logic: Wait for an available master to install the agent
 #
-$master_uri = "http://$($server):80"
+$master_uri = "http://$($server):80/deployed.txt"
 :loop while ($true) {
   $status = Invoke-WebRequest $master_uri | % {$_.StatusCode}
   switch ($status)

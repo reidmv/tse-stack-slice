@@ -132,6 +132,7 @@ function StartPuppetService {
   & $puppet_bin_dir\puppet resource service puppet ensure=running enable=true
 }
 
+#$master_ip = "192.168.0.20"
 function MakeMasterHostsEntry {
   $host_entry = "$master_ip $server"
   $host_entry | Out-File -FilePath C:\Windows\System32\Drivers\etc\hosts -Append -Encoding ascii
@@ -143,8 +144,9 @@ MakeMasterHostsEntry
 #
 $master_uri = "http://$($server):80/deployed.txt"
 :loop while ($true) {
-  $status = Invoke-WebRequest $master_uri | % {$_.StatusCode}
-  switch ($status)
+  $request = [System.Net.WebRequest]::Create($master_uri)
+  $response = $request.GetResponse()
+  switch ($response.StatusCode.value__)
       {
           200 {
             DownloadPuppet

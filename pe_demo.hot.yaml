@@ -72,7 +72,7 @@ resources:
       key_name: { get_param: key_name }
       security_groups:
         - "sg0"
-      user_data: &posix_agent_user_data
+      user_data: &linux_agent_user_data
         str_replace:
           template: |
             #!/bin/bash
@@ -103,7 +103,7 @@ resources:
 
   centos7a_server:
     type: OS::Nova::Server
-    properties: &posix_agent_properties
+    properties:
       name: "centos7a.pdx.puppet.vm"
       image: "centos_7_x86_64"
       flavor: "g1.medium"
@@ -111,24 +111,138 @@ resources:
       security_groups:
         - "sg0"
       user_data:
-        <<: *posix_agent_user_data
+        <<: *linux_agent_user_data
 
   centos7b_server:
     type: OS::Nova::Server
     properties:
-      <<: *posix_agent_properties
       name: "centos7b.syd.puppet.vm"
+      image: "centos_7_x86_64"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
+
+  centos6a_server:
+    type: OS::Nova::Server
+    properties:
+      name: "centos6a.pdx.puppet.vm"
+      image: "6ed7eb41-ae01-4f7f-8294-36e86e045bb6"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
+
+  centos6b_server:
+    type: OS::Nova::Server
+    properties:
+      name: "centos6b.syd.puppet.vm"
+      image: "6ed7eb41-ae01-4f7f-8294-36e86e045bb6"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
+
+  ubuntu1404a_server:
+    type: OS::Nova::Server
+    properties:
+      name: "ubuntu1404a.pdx.puppet.vm"
+      image: "ubuntu_14.04_x86_64"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
+
+  ubuntu1404a_server:
+    type: OS::Nova::Server
+    properties:
+      name: "ubuntu1404b.syd.puppet.vm"
+      image: "ubuntu_14.04_x86_64"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
+
+  rgbankdev_server:
+    type: OS::Nova::Server
+    properties:
+      name: "rgbank-dev.pdx.puppet.vm"
+      image: "centos_7_x86_64"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
+
+  rgbankappserver01_server:
+    type: OS::Nova::Server
+    properties:
+      name: "rgbank-appserver-01.pdx.puppet.vm"
+      image: "centos_7_x86_64"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
+
+  rgbankappserver02_server:
+    type: OS::Nova::Server
+    properties:
+      name: "rgbank-appserver-02.pdx.puppet.vm"
+      image: "centos_7_x86_64"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
+
+  rgbankdatabase01_server:
+    type: OS::Nova::Server
+    properties:
+      name: "rgbank-database-01.pdx.puppet.vm"
+      image: "centos_7_x86_64"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
+
+  rgbankloadbalancer01_server:
+    type: OS::Nova::Server
+    properties:
+      name: "rgbank-loadbalancer-01.pdx.puppet.vm"
+      image: "centos_7_x86_64"
+      flavor: "g1.medium"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *linux_agent_user_data
 
   server2012r2a_server:
     type: OS::Nova::Server
-    properties: &windows_agent_properties
+    properties:
       name: "server2012r2a.pdx.puppet.vm"
       image: "windows_2012_r2_std_eval_x86_64"
       flavor: "g1.large"
       key_name: { get_param: key_name }
       security_groups:
         - "sg0"
-      user_data:
+      user_data: &windows_agent_user_data
         str_replace:
           template: |
             #ps1
@@ -297,8 +411,14 @@ resources:
   server2012r2b_server:
     type: OS::Nova::Server
     properties:
-      <<: *windows_agent_properties
       name: "server2012r2b.syd.puppet.vm"
+      image: "windows_2012_r2_std_eval_x86_64"
+      flavor: "g1.large"
+      key_name: { get_param: key_name }
+      security_groups:
+        - "sg0"
+      user_data:
+        <<: *windows_agent_user_data
 
 outputs:
   master_ip:

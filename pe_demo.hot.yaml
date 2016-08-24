@@ -36,8 +36,9 @@ resources:
             echo $gitlab_floating_ip gitlab.inf.puppet.vm >> /etc/hosts
             mkdir -p /etc/puppetlabs/puppet
             echo '*' > /etc/puppetlabs/puppet/autosign.conf
-            curl -O http://pe-releases.puppetlabs.lan/$version/puppet-enterprise-$version-el-7-x86_64.tar.gz
-            curl -o pe-demo.tar.gz $pe_demo_build_url
+            retrycurl() { set +e; while :; do curl "$@"; [ "$?" = 0 ] && break; done; set -e; }
+            retrycurl --max-time 30 -O http://pe-releases.puppetlabs.lan/$version/puppet-enterprise-$version-el-7-x86_64.tar.gz
+            retrycurl --max-time 15 -o pe-demo.tar.gz $pe_demo_build_url
             tar -xzf puppet-enterprise-$version-el-7-x86_64.tar.gz
             mkdir pe-demo && tar -xzf pe-demo.tar.gz -C pe-demo --strip-components 1
             cat > pe.conf <<-EOF
@@ -55,6 +56,7 @@ resources:
             ./pe-demo/scripts/bootstrap.sh
           params:
             $gitlab_floating_ip: { get_attr: [gitlab_floating_ip, ip] }
+            $pe_demo_build_url: { get_param: pe_demo_build_url }
 
   master_floating_ip:
     type: OS::Nova::FloatingIP

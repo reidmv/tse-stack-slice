@@ -12,6 +12,10 @@ parameters:
     type: string
     description: URL to download pe-demo build tarball from
     default: http://tse-builds.s3-us-west-2.amazonaws.com/2016.2.x/releases/pe-demo-latest.tar.gz
+  pe_source_url:
+    type: string
+    description: URL to download Puppet Enterprise from (tar.gz or tar)
+    default: http://pe-releases.puppetlabs.lan/2016.2.1/puppet-enterprise-2016.2.1-el-7-x86_64.tar.gz
 
 resources:
 
@@ -30,16 +34,15 @@ resources:
           template: |
             #!/bin/bash
             set -ex
-            version=2016.2.1
             hostname $(curl http://169.254.169.254/latest/meta-data/local-hostname)
             echo $(curl -s http://169.254.169.254/latest/meta-data/local-ipv4) $(hostname) >> /etc/hosts
             echo $gitlab_floating_ip gitlab.inf.puppet.vm >> /etc/hosts
             mkdir -p /etc/puppetlabs/puppet
             echo '*' > /etc/puppetlabs/puppet/autosign.conf
             retrycurl() { set +e; while :; do curl "$@"; [ "$?" = 0 ] && break; done; set -e; }
-            retrycurl --max-time 30 -O http://pe-releases.puppetlabs.lan/$version/puppet-enterprise-$version-el-7-x86_64.tar.gz
+            retrycurl --max-time 30 -o pe.archive $pe_source_url
             retrycurl --max-time 15 -o pe-demo.tar.gz $pe_demo_build_url
-            tar -xzf puppet-enterprise-$version-el-7-x86_64.tar.gz
+            tar -xf pe.archive
             mkdir pe-demo && tar -xzf pe-demo.tar.gz -C pe-demo --strip-components 1
             cat > pe.conf <<-EOF
             {
@@ -52,11 +55,12 @@ resources:
               "puppet_enterprise::profile::master::check_for_updates": false
             }
             EOF
-            ./puppet-enterprise-$version-el-7-x86_64/puppet-enterprise-installer -c pe.conf
+            ./puppet-enterprise-*-el-7-x86_64/puppet-enterprise-installer -c pe.conf
             ./pe-demo/scripts/bootstrap.sh
           params:
             $gitlab_floating_ip: { get_attr: [gitlab_floating_ip, ip] }
             $pe_demo_build_url: { get_param: pe_demo_build_url }
+            $pe_source_url: { get_param: pe_source_url }
 
   master_floating_ip:
     type: OS::Nova::FloatingIP

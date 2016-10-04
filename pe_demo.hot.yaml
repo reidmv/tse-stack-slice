@@ -123,6 +123,17 @@ resources:
       user_data:
         <<: *linux_agent_user_data
 
+  centos7a_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  centos7a_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: centos7a_floating_ip }
+      server_id: { get_resource: centos7a_server }
+
   centos7b_server:
     type: OS::Nova::Server
     properties:
@@ -134,6 +145,17 @@ resources:
         - "sg0"
       user_data:
         <<: *linux_agent_user_data
+
+  centos7b_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  centos7b_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: centos7b_floating_ip }
+      server_id: { get_resource: centos7b_server }
 
   centos6a_server:
     type: OS::Nova::Server
@@ -147,6 +169,17 @@ resources:
       user_data:
         <<: *linux_agent_user_data
 
+  centos6a_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  centos6a_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: centos6a_floating_ip }
+      server_id: { get_resource: centos6a_server }
+
   centos6b_server:
     type: OS::Nova::Server
     properties:
@@ -158,6 +191,17 @@ resources:
         - "sg0"
       user_data:
         <<: *linux_agent_user_data
+
+  centos6b_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  centos6b_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: centos6b_floating_ip }
+      server_id: { get_resource: centos6b_server }
 
   ubuntu1404a_server:
     type: OS::Nova::Server
@@ -171,7 +215,18 @@ resources:
       user_data:
         <<: *linux_agent_user_data
 
-  ubuntu1404a_server:
+  ubuntu1404a_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  ubuntu1404a_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: ubuntu1404a_floating_ip }
+      server_id: { get_resource: ubuntu1404a_server }
+
+  ubuntu1404b_server:
     type: OS::Nova::Server
     properties:
       name: "ubuntu1404b.syd.puppet.vm"
@@ -182,6 +237,17 @@ resources:
         - "sg0"
       user_data:
         <<: *linux_agent_user_data
+
+  ubuntu1404b_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  ubuntu1404b_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: ubuntu1404b_floating_ip }
+      server_id: { get_resource: ubuntu1404b_server }
 
   rgbankdev_server:
     type: OS::Nova::Server
@@ -195,6 +261,17 @@ resources:
       user_data:
         <<: *linux_agent_user_data
 
+  rgbankdev_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  rgbankdev_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: rgbankdev_floating_ip }
+      server_id: { get_resource: rgbankdev_server }
+
   rgbankappserver01_server:
     type: OS::Nova::Server
     properties:
@@ -206,6 +283,17 @@ resources:
         - "sg0"
       user_data:
         <<: *linux_agent_user_data
+
+  rgbankappserver01_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  rgbankappserver01_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: rgbankappserver01_floating_ip }
+      server_id: { get_resource: rgbankappserver01_server }
 
   rgbankappserver02_server:
     type: OS::Nova::Server
@@ -219,6 +307,17 @@ resources:
       user_data:
         <<: *linux_agent_user_data
 
+  rgbankappserver02_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  rgbankappserver02_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: rgbankappserver02_floating_ip }
+      server_id: { get_resource: rgbankappserver02_server }
+
   rgbankdatabase01_server:
     type: OS::Nova::Server
     properties:
@@ -231,6 +330,17 @@ resources:
       user_data:
         <<: *linux_agent_user_data
 
+  rgbankdatabase01_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  rgbankdatabase01_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: rgbankdatabase01_floating_ip }
+      server_id: { get_resource: rgbankdatabase01_server }
+
   rgbankloadbalancer01_server:
     type: OS::Nova::Server
     properties:
@@ -242,6 +352,17 @@ resources:
         - "sg0"
       user_data:
         <<: *linux_agent_user_data
+
+  rgbankloadbalancer01_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  rgbankloadbalancer01_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: rgbankloadbalancer01_floating_ip }
+      server_id: { get_resource: rgbankloadbalancer01_server }
 
   server2012r2a_server:
     type: OS::Nova::Server
@@ -418,6 +539,17 @@ resources:
           params:
             $master_ip: { get_attr: [master_server, first_address] }
 
+  server2012r2a_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  server2012r2a_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: server2012r2a_floating_ip }
+      server_id: { get_resource: server2012r2a_server }
+
   server2012r2b_server:
     type: OS::Nova::Server
     properties:
@@ -429,6 +561,17 @@ resources:
         - "sg0"
       user_data:
         <<: *windows_agent_user_data
+
+  server2012r2b_floating_ip:
+    type: OS::Nova::FloatingIP
+    properties:
+      pool: "ext-net-pdx1-opdx1"
+
+  server2012r2b_floating_ip_association:
+    type: OS::Nova::FloatingIPAssociation
+    properties:
+      floating_ip: { get_resource: server2012r2b_floating_ip }
+      server_id: { get_resource: server2012r2b_server }
 
 outputs:
   master_ip:

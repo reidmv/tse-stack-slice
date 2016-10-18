@@ -11,11 +11,11 @@ parameters:
   pe_demo_build_url:
     type: string
     description: URL to download pe-demo build tarball from
-    default: http://tse-builds.s3-us-west-2.amazonaws.com/2016.2.x/releases/pe-demo-latest.tar.gz
+    default: http://tse-builds.s3-us-west-2.amazonaws.com/2016.4.x/releases/pe-demo-latest.tar.gz
   pe_source_url:
     type: string
     description: URL to download Puppet Enterprise from (tar.gz or tar)
-    default: http://pe-releases.puppetlabs.lan/2016.2.1/puppet-enterprise-2016.2.1-el-7-x86_64.tar.gz
+    default: http://pe-releases.puppetlabs.lan/2016.4.0/puppet-enterprise-2016.4.0-el-7-x86_64.tar.gz
 
 resources:
 

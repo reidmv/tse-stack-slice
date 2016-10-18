@@ -56,7 +56,7 @@ resources:
             }
             EOF
             ./puppet-enterprise-*-el-7-x86_64/puppet-enterprise-installer -c pe.conf
-            ./pe-demo/scripts/bootstrap.sh
+            ./pe-demo/scripts/provisioners/puppet_master_bootstrap.sh
           params:
             $gitlab_floating_ip: { get_attr: [gitlab_floating_ip, ip] }
             $pe_demo_build_url: { get_param: pe_demo_build_url }

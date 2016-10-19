@@ -15,7 +15,7 @@ parameters:
   pe_source_url:
     type: string
     description: URL to download Puppet Enterprise from (tar.gz or tar)
-    default: http://pe-releases.puppetlabs.lan/2016.4.0/puppet-enterprise-2016.4.0-el-7-x86_64.tar.gz
+    default: http://pe-releases.puppetlabs.net/2016.4.0/puppet-enterprise-2016.4.0-el-7-x86_64.tar.gz
 
 resources:
 

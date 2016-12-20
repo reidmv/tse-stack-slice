@@ -44,7 +44,7 @@ resources:
       user_data:
         str_replace:
           template:
-            get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-master"
+            get_file: "https://github.com/reidmv/tse-stack-slice/tree/master/user_data/bootstrap-master"
           params:
             $gitlab_floating_ip: { get_attr: [gitlab_floating_ip, ip] }
             $pe_demo_build_url: { get_param: pe_demo_build_url }
@@ -87,7 +87,7 @@ resources:
       user_data:
         str_replace:
           template:
-            get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
+            get_file: "https://github.com/reidmv/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
           params:
             $master_ip: { get_attr: [master_server, first_address] }
 
@@ -123,7 +123,7 @@ resources:
           user_data:
             str_replace:
               template:
-                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
+                get_file: "https://github.com/reidmv/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
               params:
                 $master_ip: { get_attr: [master_server, first_address] }
 
@@ -148,7 +148,7 @@ resources:
           user_data:
             str_replace:
               template:
-                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
+                get_file: "https://github.com/reidmv/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
               params:
                 $master_ip: { get_attr: [master_server, first_address] }
 
@@ -173,7 +173,7 @@ resources:
           user_data:
             str_replace:
               template:
-                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
+                get_file: "https://github.com/reidmv/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
               params:
                 $master_ip: { get_attr: [master_server, first_address] }
 
@@ -198,7 +198,7 @@ resources:
           user_data:
             str_replace:
               template:
-                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
+                get_file: "https://github.com/reidmv/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
               params:
                 $master_ip: { get_attr: [master_server, first_address] }
 
@@ -223,7 +223,7 @@ resources:
           user_data:
             str_replace:
               template:
-                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-windows"
+                get_file: "https://github.com/reidmv/tse-stack-slice/tree/master/user_data/bootstrap-agent-windows"
               params:
                 $master_ip: { get_attr: [master_server, first_address] }
 

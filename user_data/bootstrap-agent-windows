@@ -1,0 +1,12 @@
+#ps1
+#
+# Template parameters
+#   - $master_ip
+#
+#
+[Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+$webClient = New-Object System.Net.WebClient
+$webClient.DownloadFile('https://<PUPPET MASTER FQDN>:8140/packages/latest/install.ps1', 'install.ps1')
+#.\install.ps1 agent:certname=<certnameOtherThanFQDN>
+.\install.ps1
+

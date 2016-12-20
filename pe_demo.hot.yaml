@@ -10,14 +10,26 @@ parameters:
       - { custom_constraint: nova.keypair }
   pe_demo_build_url:
     type: string
+    label: "PE Demo Build URL"
     description: URL to download pe-demo build tarball from
     default: http://tse-builds.s3-us-west-2.amazonaws.com/2016.4.x/releases/pe-demo-latest.tar.gz
   pe_source_url:
     type: string
+    label: "PE Source URL"
     description: URL to download Puppet Enterprise from (tar.gz or tar)
     default: http://pe-releases.puppetlabs.net/2016.4.0/puppet-enterprise-2016.4.0-el-7-x86_64.tar.gz
+  centos7_agent_count:
+    type: number
+    label: "Number of Centos 7 agents"
+    default: 0
 
 resources:
+
+  name_nonce:
+    type: OS::Heat::RandomString
+    properties:
+      length: 8
+      sequence: lowercase
 
   master_server:
     type: OS::Nova::Server
@@ -31,36 +43,25 @@ resources:
       user_data_format: RAW
       user_data:
         str_replace:
-          template: |
-            #!/bin/bash
-            set -ex
-            hostname $(curl http://169.254.169.254/latest/meta-data/local-hostname)
-            echo $(curl -s http://169.254.169.254/latest/meta-data/local-ipv4) $(hostname) >> /etc/hosts
-            echo $gitlab_floating_ip gitlab.inf.puppet.vm >> /etc/hosts
-            mkdir -p /etc/puppetlabs/puppet
-            echo '*' > /etc/puppetlabs/puppet/autosign.conf
-            retrycurl() { set +e; while :; do curl "$@"; [ "$?" = 0 ] && break; done; set -e; }
-            retrycurl --max-time 30 -o pe.archive $pe_source_url
-            retrycurl --max-time 15 -o pe-demo.tar.gz $pe_demo_build_url
-            tar -xf pe.archive
-            mkdir pe-demo && tar -xzf pe-demo.tar.gz -C pe-demo --strip-components 1
-            cat > pe.conf <<-EOF
-            {
-              "console_admin_password": "puppetlabs"
-              "puppet_enterprise::puppet_master_host": "%{::trusted.certname}"
-              "puppet_enterprise::use_application_services": true
-              "puppet_enterprise::profile::master::r10k_remote": "/opt/puppetlabs/repos/control-repo.git"
-              "puppet_enterprise::profile::master::r10k_private_key": "/dev/null"
-              "puppet_enterprise::profile::master::code_manager_auto_configure": true
-              "puppet_enterprise::profile::master::check_for_updates": false
-            }
-            EOF
-            ./puppet-enterprise-*-el-7-x86_64/puppet-enterprise-installer -c pe.conf
-            ./pe-demo/scripts/provisioners/puppet_master_bootstrap.sh
+          template:
+            get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-master"
           params:
             $gitlab_floating_ip: { get_attr: [gitlab_floating_ip, ip] }
             $pe_demo_build_url: { get_param: pe_demo_build_url }
             $pe_source_url: { get_param: pe_source_url }
+            $wc_notify: { get_attr: ['master_server_wait_handle', 'curl_cli'] }
+
+  master_server_wait:
+    type: "OS::Heat::WaitCondition"
+    depends_on: master_server
+    properties:
+      handle:
+        get_resource: master_server_wait_handle
+      timeout: 2400
+      count: 1
+
+  master_server_wait_handle:
+    type: "OS::Heat::WaitConditionHandle"
 
   master_floating_ip:
     type: OS::Nova::FloatingIP
@@ -75,6 +76,7 @@ resources:
 
   gitlab_server:
     type: OS::Nova::Server
+    depends_on: master_server_wait
     properties:
       name: "gitlab.inf.puppet.vm"
       image: "centos_7_x86_64"
@@ -82,21 +84,10 @@ resources:
       key_name: { get_param: key_name }
       security_groups:
         - "sg0"
-      user_data: &linux_agent_user_data
+      user_data:
         str_replace:
-          template: |
-            #!/bin/bash
-            echo $master_ip master.inf.puppet.vm >> /etc/hosts
-            hostname $(curl http://169.254.169.254/latest/meta-data/local-hostname)
-            echo $(curl -s http://169.254.169.254/latest/meta-data/local-ipv4) $(hostname) >> /etc/hosts
-            while :; do
-              if curl -f -s --head http://master.inf.puppet.vm:80/deployed.txt; then
-                break
-              else
-                sleep 10
-              fi
-            done
-            curl -k https://master.inf.puppet.vm:8140/packages/current/install.bash | bash
+          template:
+            get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
           params:
             $master_ip: { get_attr: [master_server, first_address] }
 
@@ -111,467 +102,130 @@ resources:
       floating_ip: { get_resource: gitlab_floating_ip }
       server_id: { get_resource: gitlab_server }
 
-  centos7a_server:
-    type: OS::Nova::Server
+  centos7_agents:
+    type: OS::Heat::ResourceGroup
     properties:
-      name: "centos7a.pdx.puppet.vm"
-      image: "centos_7_x86_64"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
+      count: { get_param: centos7_agent_count }
+      resource_def:
+        type: OS::Nova::Server
+        depends_on: master_server_wait
+        properties:
+          image: "centos_7_x86_64"
+          flavor: "g1.medium"
+          key_name: { get_param: key_name }
+          name:
+            str_replace:
+              template: "centos-$nonce.pdx.puppet.vm"
+              params:
+                $nonce: { get_resource: name_nonce }
+          security_groups:
+            - "sg0"
+          user_data:
+            str_replace:
+              template:
+                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
+              params:
+                $master_ip: { get_attr: [master_server, first_address] }
 
-  centos7a_floating_ip:
-    type: OS::Nova::FloatingIP
+  centos7_agents:
+    type: OS::Heat::ResourceGroup
     properties:
-      pool: "ext-net-pdx1-opdx1"
+      count: 1
+      resource_def:
+        type: OS::Nova::Server
+        depends_on: master_server_wait
+        properties:
+          image: "centos_7_x86_64"
+          flavor: "g1.medium"
+          key_name: { get_param: key_name }
+          name:
+            str_replace:
+              template: "centos-7-$nonce.pdx.puppet.vm"
+              params:
+                $nonce: { get_resource: name_nonce }
+          security_groups:
+            - "sg0"
+          user_data:
+            str_replace:
+              template:
+                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
+              params:
+                $master_ip: { get_attr: [master_server, first_address] }
 
-  centos7a_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
+  centos6_agents:
+    type: OS::Heat::ResourceGroup
     properties:
-      floating_ip: { get_resource: centos7a_floating_ip }
-      server_id: { get_resource: centos7a_server }
+      count: 1
+      resource_def:
+        type: OS::Nova::Server
+        depends_on: master_server_wait
+        properties:
+          image: "6ed7eb41-ae01-4f7f-8294-36e86e045bb6"
+          flavor: "g1.medium"
+          key_name: { get_param: key_name }
+          name:
+            str_replace:
+              template: "centos-6-$nonce.pdx.puppet.vm"
+              params:
+                $nonce: { get_resource: name_nonce }
+          security_groups:
+            - "sg0"
+          user_data:
+            str_replace:
+              template:
+                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
+              params:
+                $master_ip: { get_attr: [master_server, first_address] }
 
-  centos7b_server:
-    type: OS::Nova::Server
+  ubuntu1404_agents:
+    type: OS::Heat::ResourceGroup
     properties:
-      name: "centos7b.syd.puppet.vm"
-      image: "centos_7_x86_64"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
+      count: 1
+      resource_def:
+        type: OS::Nova::Server
+        depends_on: master_server_wait
+        properties:
+          image: "ubuntu_14.04_x86_64"
+          flavor: "g1.medium"
+          key_name: { get_param: key_name }
+          name:
+            str_replace:
+              template: "ubuntu-1404-$nonce.pdx.puppet.vm"
+              params:
+                $nonce: { get_resource: name_nonce }
+          security_groups:
+            - "sg0"
+          user_data:
+            str_replace:
+              template:
+                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-linux"
+              params:
+                $master_ip: { get_attr: [master_server, first_address] }
 
-  centos7b_floating_ip:
-    type: OS::Nova::FloatingIP
+  windows_agents:
+    type: OS::Heat::ResourceGroup
     properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  centos7b_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: centos7b_floating_ip }
-      server_id: { get_resource: centos7b_server }
-
-  centos6a_server:
-    type: OS::Nova::Server
-    properties:
-      name: "centos6a.pdx.puppet.vm"
-      image: "6ed7eb41-ae01-4f7f-8294-36e86e045bb6"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
-
-  centos6a_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  centos6a_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: centos6a_floating_ip }
-      server_id: { get_resource: centos6a_server }
-
-  centos6b_server:
-    type: OS::Nova::Server
-    properties:
-      name: "centos6b.syd.puppet.vm"
-      image: "6ed7eb41-ae01-4f7f-8294-36e86e045bb6"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
-
-  centos6b_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  centos6b_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: centos6b_floating_ip }
-      server_id: { get_resource: centos6b_server }
-
-  ubuntu1404a_server:
-    type: OS::Nova::Server
-    properties:
-      name: "ubuntu1404a.pdx.puppet.vm"
-      image: "ubuntu_14.04_x86_64"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
-
-  ubuntu1404a_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  ubuntu1404a_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: ubuntu1404a_floating_ip }
-      server_id: { get_resource: ubuntu1404a_server }
-
-  ubuntu1404b_server:
-    type: OS::Nova::Server
-    properties:
-      name: "ubuntu1404b.syd.puppet.vm"
-      image: "ubuntu_14.04_x86_64"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
-
-  ubuntu1404b_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  ubuntu1404b_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: ubuntu1404b_floating_ip }
-      server_id: { get_resource: ubuntu1404b_server }
-
-  rgbankdev_server:
-    type: OS::Nova::Server
-    properties:
-      name: "rgbank-dev.pdx.puppet.vm"
-      image: "centos_7_x86_64"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
-
-  rgbankdev_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  rgbankdev_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: rgbankdev_floating_ip }
-      server_id: { get_resource: rgbankdev_server }
-
-  rgbankappserver01_server:
-    type: OS::Nova::Server
-    properties:
-      name: "rgbank-appserver-01.pdx.puppet.vm"
-      image: "centos_7_x86_64"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
-
-  rgbankappserver01_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  rgbankappserver01_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: rgbankappserver01_floating_ip }
-      server_id: { get_resource: rgbankappserver01_server }
-
-  rgbankappserver02_server:
-    type: OS::Nova::Server
-    properties:
-      name: "rgbank-appserver-02.pdx.puppet.vm"
-      image: "centos_7_x86_64"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
-
-  rgbankappserver02_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  rgbankappserver02_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: rgbankappserver02_floating_ip }
-      server_id: { get_resource: rgbankappserver02_server }
-
-  rgbankdatabase01_server:
-    type: OS::Nova::Server
-    properties:
-      name: "rgbank-database-01.pdx.puppet.vm"
-      image: "centos_7_x86_64"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
-
-  rgbankdatabase01_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  rgbankdatabase01_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: rgbankdatabase01_floating_ip }
-      server_id: { get_resource: rgbankdatabase01_server }
-
-  rgbankloadbalancer01_server:
-    type: OS::Nova::Server
-    properties:
-      name: "rgbank-loadbalancer-01.pdx.puppet.vm"
-      image: "centos_7_x86_64"
-      flavor: "g1.medium"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *linux_agent_user_data
-
-  rgbankloadbalancer01_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  rgbankloadbalancer01_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: rgbankloadbalancer01_floating_ip }
-      server_id: { get_resource: rgbankloadbalancer01_server }
-
-  server2012r2a_server:
-    type: OS::Nova::Server
-    properties:
-      name: "server2012r2a.pdx.puppet.vm"
-      image: "windows_2012_r2_std_eval_x86_64"
-      flavor: "g1.large"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data: &windows_agent_user_data
-        str_replace:
-          template: |
-            #ps1
-            # install_agent.ps1 : This powershell script installs the puppet-agent package from a Puppet Enterprise master
-            # This version is specifically for the TSE Demo envoronment and includes logic to wait to install the agent
-            # until the master  is available.
-            #
-            # You could call this script like this:
-            # install.ps1 main:certname=foo custom_attributes:challengePassword=SECRET extension_requests:pp_role=webserver
-            [CmdletBinding()]
-
-            $server          = "master.inf.puppet.vm"
-            $port            = '8140'
-            $puppet_bin_dir  = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'Puppet Labs\Puppet\bin'
-            $puppet_conf_dir = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'Puppetlabs\puppet\etc'
-            $date_time_stamp = (Get-Date -format s) -replace ':', '-'
-            $install_log     = Join-Path ([System.IO.Path]::GetTempPath()) "$date_time_stamp-puppet-install.log"
-
-            # Start with assumption of 64 bit agent package unless probe detects 32 bit.
-            $arch       = 'x64'
-            $msi_path   = 'windows-x86_64'
-            if ((Get-WmiObject Win32_OperatingSystem).OSArchitecture -match '^32') {
-              $arch     = 'x86'
-              $msi_path = 'windows-i386'
-            }
-            $msi_source    = "https://${server}:$port/packages/current/$msi_path/puppet-agent-$arch.msi"
-            $msi_dest      = Join-Path ([System.IO.Path]::GetTempPath()) "puppet-agent-$arch.msi"
-            $class_arch    = $msi_path -replace '-', '_'
-            $pe_repo_class = "pe_repo::platform::$class_arch"
-            $agent_certname = Invoke-RestMethod -Uri http://169.254.169.254/latest/meta-data/local-hostname
-
-            function CustomPuppetConfiguration {
-              # Parse optional pre-installation configuration of Puppet settings via
-              # command-line arguments. Arguments should be of the form
-              #
-              #   <section>:<setting>=<value>
-              #
-              # There are four valid section settings in puppet.conf: "main", "master",
-              # "agent", "user". If you provide valid setting and value for one of these
-              # four sections, it will end up in <confdir>/puppet.conf.
-              #
-              # There are two sections in csr_attributes.yaml: "custom_attributes" and
-              # "extension_requests". If you provide valid setting and value for one
-              # of these two sections, it will end up in <confdir>/csr_attributes.yaml.
-              #
-              # note:Custom Attributes are only present in the CSR, while Extension
-              # Requests are both in the CSR and included as X509 extensions in the
-              # signed certificate (and are thus available as "trusted facts" in Puppet).
-              #
-              # Regex is authoritative for valid sections, settings, and values.  Any input
-              # that fails regex will trigger this script to fail with error message.
-              $regex = '^(main|master|agent|user|custom_attributes|extension_requests):(.*)=(.*)$'
-              $attr_array = @()
-              $extn_array = @()
-              $match = $null
-
-              foreach ($entry in $arguments) {
-                if (! ($match = [regex]::Match($entry,$regex)).Success) {
-                  Throw "Unable to interpret argument: '$entry'. Expected '<section>:<setting>=<value>' matching regex: '$regex'"
-                }
-                else {
-                  $section=$match.groups[1].captures.value
-                  $setting=$match.groups[2].captures.value
-                  $value=$match.groups[3].captures.value
-                  switch ($section) {
-                    'custom_attributes' {
-                      # Store the entry in attr_array for later addition to csr_attributes.yaml
-                      $attr_array += "${setting}: '${value}'"
-                      break
-                    }
-                    'extension_requests' {
-                      # Store the entry in extn_array for later addition to csr_attributes.yaml
-                      $extn_array += "${setting}: '${value}'"
-                      break
-                    }
-                    default {
-                      # Set the specified entry in puppet.conf
-                      & $puppet_bin_dir\puppet config set $setting $value --section $section
-                      break
-                    }
-                  }
-                }
-              }
-              # If the the length of the attr_array or extn_array is greater than zero, it
-              # means we have settings, so we'll create the csr_attributes.yaml file.
-              if ($attr_array.length -gt 0 -or $extn_array.length -gt 0) {
-                echo('---') | out-file -filepath $puppet_conf_dir\csr_attributes.yaml -encoding UTF8
-
-                if ($attr_array.length -gt 0) {
-                  echo('custom_attributes:') | out-file -filepath $puppet_conf_dir\csr_attributes.yaml -append -encoding UTF8
-                  for ($i = 0; $i -lt $attr_array.length; $i++) {
-                    echo('  ' + $attr_array[$i]) | out-file -filepath $puppet_conf_dir\csr_attributes.yaml -append -encoding UTF8
-                  }
-                }
-
-                if ($extn_array.length -gt 0) {
-                  echo('extension_requests:') | out-file -filepath $puppet_conf_dir\csr_attributes.yaml -append -encoding UTF8
-                  for ($i = 0; $i -lt $extn_array.length; $i++) {
-                    echo('  ' + $extn_array[$i]) | out-file -filepath $puppet_conf_dir\csr_attributes.yaml -append -encoding UTF8
-                  }
-                }
-              }
-            }
-
-            function DownloadPuppet {
-              Write-Verbose "Downloading the Puppet Agent for Puppet Enterprise on $env:COMPUTERNAME..."
-              [System.Net.ServicePointManager]::ServerCertificateValidationCallback={$true}
-              $webclient = New-Object system.net.webclient
-              try {
-                $webclient.DownloadFile($msi_source,$msi_dest)
-              }
-              catch [Net.WebException] {
-                Write-Error "Failed to download the Puppet Agent installer: $msi_source"
-                Write-Error "$_"
-                Write-Error "Does the Puppet Master have the $pe_repo_class class applied to it?"
-                Throw {}
-              }
-            }
-
-            function InstallPuppet {
-              Write-Verbose "Installing the Puppet Agent on $env:COMPUTERNAME..."
-              Write-Verbose "Saving the install log to $install_log"
-              $msiexec_args = "/qn /log $install_log /i $msi_dest PUPPET_MASTER_SERVER=$server PUPPET_AGENT_STARTUP_MODE=Manual PUPPET_AGENT_CERTNAME=$agent_certname"
-              $msiexec_proc = [System.Diagnostics.Process]::Start('msiexec', $msiexec_args)
-              $msiexec_proc.WaitForExit()
-              if (@(0, 1641, 3010) -NotContains $msiexec_proc.ExitCode) {
-              Throw "Something went wrong with the installation on $env:COMPUTERNAME. Exit code: " + $msiexec_proc.ExitCode + ". Check the install log at $install_log"
-              }
-              $certname = & $puppet_bin_dir\puppet config print certname
-              & $puppet_bin_dir\puppet config set certname $certname --section main
-            }
-
-            function StartPuppetService {
-              & $puppet_bin_dir\puppet resource service puppet ensure=running enable=true
-            }
-
-            function MakeMasterHostsEntry {
-              $host_entry = "$master_ip $server"
-              $host_entry | Out-File -FilePath C:\Windows\System32\Drivers\etc\hosts -Append -Encoding ascii
-            }
-
-            MakeMasterHostsEntry
-
-            ## Logic: Wait for an available master to install the agent
-            #
-            $master_uri = "http://$($server):80/deployed.txt"
-            :loop while ($true) {
-              $request = [System.Net.WebRequest]::Create($master_uri)
-              $response = $request.GetResponse()
-              switch ($response.StatusCode.value__)
-                  {
-                      200 {
-                        DownloadPuppet
-                        InstallPuppet
-                        CustomPuppetConfiguration
-                        StartPuppetService
-                        Write-Verbose "Installation has completed."
-                        break loop
-                        }
-                      default { Write-Host "Waiting for master to be available" ; sleep 10 }
-                  }
-            }
-          params:
-            $master_ip: { get_attr: [master_server, first_address] }
-
-  server2012r2a_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  server2012r2a_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: server2012r2a_floating_ip }
-      server_id: { get_resource: server2012r2a_server }
-
-  server2012r2b_server:
-    type: OS::Nova::Server
-    properties:
-      name: "server2012r2b.syd.puppet.vm"
-      image: "windows_2012_r2_std_eval_x86_64"
-      flavor: "g1.large"
-      key_name: { get_param: key_name }
-      security_groups:
-        - "sg0"
-      user_data:
-        <<: *windows_agent_user_data
-
-  server2012r2b_floating_ip:
-    type: OS::Nova::FloatingIP
-    properties:
-      pool: "ext-net-pdx1-opdx1"
-
-  server2012r2b_floating_ip_association:
-    type: OS::Nova::FloatingIPAssociation
-    properties:
-      floating_ip: { get_resource: server2012r2b_floating_ip }
-      server_id: { get_resource: server2012r2b_server }
+      count: 1
+      resource_def:
+        type: OS::Nova::Server
+        depends_on: master_server_wait
+        properties:
+          image: "windows_2012_r2_std_eval_x86_64"
+          flavor: "g1.large"
+          key_name: { get_param: key_name }
+          name:
+            str_replace:
+              template: "win-2012-$nonce.pdx.puppet.vm"
+              params:
+                $nonce: { get_resource: name_nonce }
+          security_groups:
+            - "sg0"
+          user_data:
+            str_replace:
+              template:
+                get_file: "https://github.com/puppetlabs/tse-stack-slice/tree/master/user_data/bootstrap-agent-windows"
+              params:
+                $master_ip: { get_attr: [master_server, first_address] }
 
 outputs:
   master_ip:

@@ -3,10 +3,12 @@
 # Template parameters
 #   - $master_ip
 #
-#
+$puppet_server = "master.inf.puppet.vm"
+$agent_certname = Invoke-RestMethod -Uri http://169.254.169.254/latest/meta-data/local-hostname
+$host_entry = "$master_ip $puppet_server"
+$host_entry | Out-File -FilePath C:\Windows\System32\Drivers\etc\hosts -Append -Encoding ascii
+
 [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 $webClient = New-Object System.Net.WebClient
-$webClient.DownloadFile('https://<PUPPET MASTER FQDN>:8140/packages/latest/install.ps1', 'install.ps1')
-#.\install.ps1 agent:certname=<certnameOtherThanFQDN>
-.\install.ps1
-
+$webClient.DownloadFile("https://$puppet_server:8140/packages/current/install.ps1", 'install.ps1')
+.\install.ps1 "main:certname=$agent_certname"

@@ -10,5 +10,5 @@ $host_entry | Out-File -FilePath C:\Windows\System32\Drivers\etc\hosts -Append -
 
 [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 $webClient = New-Object System.Net.WebClient
-$webClient.DownloadFile("https://$($puppet_server):8140/packages/current/install.ps1", 'install.ps1')
-.\install.ps1 "main:certname=$($agent_certname)"
+$webClient.DownloadFile("https://$($puppet_server):8140/packages/current/install.ps1", "$($env:temp)\install.ps1")
+Invoke-Expression "$($env:temp)\install.ps1 main:certname=$($agent_certname)"

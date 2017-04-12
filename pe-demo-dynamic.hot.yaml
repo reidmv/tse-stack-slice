@@ -30,12 +30,12 @@ parameters:
     type: string
     label: "PE Demo Build URL"
     description: URL to download pe-demo build tarball from
-    default: http://tse-builds.s3-us-west-2.amazonaws.com/2016.5.x/releases/pe-demo-latest.tar.gz
+    default: http://tse-builds.s3-us-west-2.amazonaws.com/2017.1.x/releases/pe-demo-latest.tar.gz
   pe_source_url:
     type: string
     label: "PE Source URL"
     description: URL to download Puppet Enterprise from (tar.gz or tar)
-    default: http://pe-releases.puppetlabs.net/2016.5.1/puppet-enterprise-2016.5.1-el-7-x86_64.tar.gz
+    default: http://pe-releases.puppetlabs.net/2017.1.1/puppet-enterprise-2017.1.1-el-7-x86_64.tar.gz
   count_agents_centos7:
     type: number
     label: "Number of CentOS 7 agents"

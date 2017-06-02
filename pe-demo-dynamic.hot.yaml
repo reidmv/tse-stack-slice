@@ -159,7 +159,7 @@ resources:
           flavor: "g1.medium"
           key_name: { get_param: access_key_name }
           networks:
-            - network: { get_resource: network_private }
+            - network: { get_param: network_private }
           name: "centos-7-%index%.pdx.puppet.vm"
           security_groups:
             - "sg0"
@@ -182,7 +182,7 @@ resources:
           flavor: "g1.medium"
           key_name: { get_param: access_key_name }
           networks:
-            - network: { get_resource: network_private }
+            - network: { get_param: network_private }
           name: "centos-6-%index%.pdx.puppet.vm"
           security_groups:
             - "sg0"
@@ -205,7 +205,7 @@ resources:
           flavor: "g1.medium"
           key_name: { get_param: access_key_name }
           networks:
-            - network: { get_resource: network_private }
+            - network: { get_param: network_private }
           name: "ubuntu-1404-%index%.pdx.puppet.vm"
           security_groups:
             - "sg0"
@@ -228,7 +228,7 @@ resources:
           flavor: "g1.large"
           key_name: { get_param: access_key_name }
           networks:
-            - network: { get_resource: network_private }
+            - network: { get_param: network_private }
           name: "win-2012-%index%.pdx.puppet.vm"
           security_groups:
             - "sg0"

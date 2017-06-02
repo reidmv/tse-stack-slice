@@ -23,7 +23,7 @@ cat > pe.conf <<-EOF
   "puppet_enterprise::puppet_master_host": "%{::trusted.certname}"
   "puppet_enterprise::use_application_services": true
   "puppet_enterprise::profile::master::r10k_remote": "/opt/puppetlabs/repos/control-repo.git"
-  "puppet_enterprise::profile::master::r10k_private_key": "/dev/null"
+  "puppet_enterprise::profile::master::r10k_private_key": ""
   "puppet_enterprise::profile::master::code_manager_auto_configure": true
   "puppet_enterprise::profile::master::check_for_updates": false
 }
